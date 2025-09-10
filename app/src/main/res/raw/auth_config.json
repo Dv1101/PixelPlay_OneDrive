@@ -1,0 +1,6 @@
+{
+  "client_id": "3712fde9-73c3-424a-92e5-c0cfe298129e",
+  "authorization_user_agent": "DEFAULT",
+  "redirect_uri": "msal3712fde9-73c3-424a-92e5-c0cfe298129e://auth",
+  "account_mode": "SINGLE_ACCOUNT"
+}

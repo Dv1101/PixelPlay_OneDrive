@@ -20,6 +20,20 @@ android {
         resources {
             excludes += "META-INF/INDEX.LIST"
             excludes += "META-INF/DEPENDENCIES"
+            excludes += setOf(
+                "/META-INF/io.netty.versions.properties",
+                "/META-INF/INDEX.LIST",
+                "/META-INF/DEPENDENCIES",
+                "/META-INF/DEPENDENCY",
+                "/META-INF/LICENSE",
+                "/META-INF/LICENSE.txt",
+                "/META-INF/license.txt",
+                "/META-INF/NOTICE",
+                "/META-INF/NOTICE.txt",
+                "/META-INF/ASL2.0",
+                "/META-INF/AL2.0",
+                "/META-INF/LGPL2.1"
+            )
         }
     }
 
@@ -232,6 +246,15 @@ dependencies {
     implementation(libs.androidx.ui.text.google.fonts)
 
     implementation(libs.accompanist.drawablepainter)
+
+    implementation("com.microsoft.identity.client:msal:6.0.1") {
+        exclude(group = "com.microsoft.device.display", module = "display-mask")
+    }
+
+    // https://mvnrepository.com/artifact/com.microsoft.graph/microsoft-graph
+    implementation("com.microsoft.graph:microsoft-graph:5.59.0")
+    // https://mvnrepository.com/artifact/com.azure/azure-identity
+    implementation("com.azure:azure-identity:1.16.2")
 }
 
 

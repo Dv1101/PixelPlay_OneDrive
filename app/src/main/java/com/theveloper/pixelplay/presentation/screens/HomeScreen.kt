@@ -121,6 +121,9 @@ fun HomeScreen(
                     onNavigationIconClick = {
                         navController.navigate(Screen.Settings.route)
                     },
+                    onNavigationIconSyncClick = {
+                        navController.navigate(Screen.Sync.route)
+                    },
                     onMoreOptionsClick = {
                         showChangelogBottomSheet = true
                     }

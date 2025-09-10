@@ -87,6 +87,7 @@ fun GenreGradientTopBar(
 fun HomeGradientTopBar(
     onNavigationIconClick: () -> Unit,
     onMoreOptionsClick: () -> Unit,
+    onNavigationIconSyncClick: () -> Unit
 ) {
     // 1) Pinta la status bar con el color surface
     val surfaceColor = MaterialTheme.colorScheme.surface
@@ -125,6 +126,19 @@ fun HomeGradientTopBar(
                         modifier = Modifier.size(18.dp),
                         painter = painterResource(R.drawable.round_newspaper_24),
                         contentDescription = "Más opciones"
+                    )
+                }
+                FilledIconButton(
+                    colors = IconButtonDefaults.filledIconButtonColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        contentColor = MaterialTheme.colorScheme.onSurface
+                    ),
+                    onClick = onNavigationIconSyncClick
+                ) {
+                    Icon(
+                        modifier = Modifier.size(18.dp),
+                        painter = painterResource(R.drawable.rounded_repeat_24),
+                        contentDescription = "Sync"
                     )
                 }
                 FilledIconButton(

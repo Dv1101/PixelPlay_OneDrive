@@ -37,6 +37,18 @@
             </intent-filter>
         </activity>
 
+        <activity android:name="com.microsoft.identity.client.BrowserTabActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:host="auth"
+                    android:scheme="msal3712fde9-73c3-424a-92e5-c0cfe298129e" />
+            </intent-filter>
+        </activity>
+
         <service
             android:name=".data.service.MusicService"
             android:exported="true"
