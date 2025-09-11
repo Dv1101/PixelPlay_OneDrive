@@ -20,6 +20,13 @@ interface MusicDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertArtists(artists: List<ArtistEntity>)
 
+    // Also add this debug query to test what's actually in your database:
+    @Query("SELECT * FROM songs ORDER BY title ASC")
+    suspend fun getAllSongsDebug(): List<SongEntity>
+
+    @Query("SELECT DISTINCT parent_directory_path FROM songs ORDER BY parent_directory_path ASC")
+    suspend fun getAllDistinctDirectoriesDebug(): List<String>
+
     @Transaction
     suspend fun insertMusicData(songs: List<SongEntity>, albums: List<AlbumEntity>, artists: List<ArtistEntity>) {
         insertArtists(artists)
@@ -48,7 +55,7 @@ interface MusicDao {
     // Updated getSongs to potentially filter by parent_directory_path
     @Query("""
         SELECT * FROM songs
-        WHERE (:applyDirectoryFilter = 0 OR parent_directory_path IN (:allowedParentDirs))
+        WHERE (:applyDirectoryFilter = 0 OR parent_directory_path IN (:allowedParentDirs) OR parent_directory_path LIKE 'ONEDRIVE:%' OR parent_directory_path LIKE '%onedrive%')
         ORDER BY title ASC
     """)
     fun getSongs(
@@ -63,7 +70,7 @@ interface MusicDao {
     @Query("""
         SELECT * FROM songs
         WHERE id IN (:songIds)
-        AND (:applyDirectoryFilter = 0 OR parent_directory_path IN (:allowedParentDirs))
+        AND (:applyDirectoryFilter = 0 OR parent_directory_path IN (:allowedParentDirs) OR parent_directory_path LIKE 'ONEDRIVE:%' OR parent_directory_path LIKE '%onedrive%')
     """)
     fun getSongsByIds(
         songIds: List<Long>,
@@ -79,7 +86,7 @@ interface MusicDao {
 
     @Query("""
         SELECT * FROM songs
-        WHERE (:applyDirectoryFilter = 0 OR parent_directory_path IN (:allowedParentDirs))
+        WHERE (:applyDirectoryFilter = 0 OR parent_directory_path IN (:allowedParentDirs) OR parent_directory_path LIKE 'ONEDRIVE:%' OR parent_directory_path LIKE '%onedrive%')
         AND (title LIKE '%' || :query || '%' OR artist_name LIKE '%' || :query || '%')
         ORDER BY title ASC
     """)
@@ -94,7 +101,7 @@ interface MusicDao {
 
     @Query("""
         SELECT * FROM songs
-        WHERE (:applyDirectoryFilter = 0 OR parent_directory_path IN (:allowedParentDirs))
+        WHERE (:applyDirectoryFilter = 0 OR parent_directory_path IN (:allowedParentDirs) OR parent_directory_path LIKE 'ONEDRIVE:%' OR parent_directory_path LIKE '%onedrive%')
     """)
     fun getAllSongs(
         allowedParentDirs: List<String> = emptyList(),
@@ -105,7 +112,7 @@ interface MusicDao {
     @Query("""
         SELECT DISTINCT albums.* FROM albums
         INNER JOIN songs ON albums.id = songs.album_id
-        WHERE (:applyDirectoryFilter = 0 OR songs.parent_directory_path IN (:allowedParentDirs))
+        WHERE (:applyDirectoryFilter = 0 OR songs.parent_directory_path IN (:allowedParentDirs) OR parent_directory_path LIKE 'ONEDRIVE:%' OR parent_directory_path LIKE '%onedrive%')
         ORDER BY albums.title ASC
     """)
     fun getAlbums(
@@ -126,7 +133,7 @@ interface MusicDao {
     @Query("""
         SELECT DISTINCT albums.* FROM albums
         INNER JOIN songs ON albums.id = songs.album_id
-        WHERE (:applyDirectoryFilter = 0 OR songs.parent_directory_path IN (:allowedParentDirs))
+        WHERE (:applyDirectoryFilter = 0 OR songs.parent_directory_path IN (:allowedParentDirs) OR parent_directory_path LIKE 'ONEDRIVE:%' OR parent_directory_path LIKE '%onedrive%')
         ORDER BY albums.title ASC
     """)
     suspend fun getAllAlbumsList(
@@ -140,7 +147,7 @@ interface MusicDao {
     @Query("""
         SELECT DISTINCT albums.* FROM albums
         INNER JOIN songs ON albums.id = songs.album_id
-        WHERE (:applyDirectoryFilter = 0 OR songs.parent_directory_path IN (:allowedParentDirs))
+        WHERE (:applyDirectoryFilter = 0 OR songs.parent_directory_path IN (:allowedParentDirs) OR parent_directory_path LIKE 'ONEDRIVE:%' OR parent_directory_path LIKE '%onedrive%')
         AND (albums.title LIKE '%' || :query || '%' OR albums.artist_name LIKE '%' || :query || '%')
         ORDER BY albums.title ASC
     """)
@@ -154,7 +161,7 @@ interface MusicDao {
     @Query("""
         SELECT DISTINCT artists.* FROM artists
         INNER JOIN songs ON artists.id = songs.artist_id
-        WHERE (:applyDirectoryFilter = 0 OR songs.parent_directory_path IN (:allowedParentDirs))
+        WHERE (:applyDirectoryFilter = 0 OR songs.parent_directory_path IN (:allowedParentDirs) OR parent_directory_path LIKE 'ONEDRIVE:%' OR parent_directory_path LIKE '%onedrive%')
         ORDER BY artists.name ASC
     """)
     fun getArtists(
@@ -175,7 +182,7 @@ interface MusicDao {
     @Query("""
         SELECT DISTINCT artists.* FROM artists
         INNER JOIN songs ON artists.id = songs.artist_id
-        WHERE (:applyDirectoryFilter = 0 OR songs.parent_directory_path IN (:allowedParentDirs))
+        WHERE (:applyDirectoryFilter = 0 OR songs.parent_directory_path IN (:allowedParentDirs) OR parent_directory_path LIKE 'ONEDRIVE:%' OR parent_directory_path LIKE '%onedrive%')
         ORDER BY artists.name ASC
     """)
     suspend fun getAllArtistsList(
@@ -186,7 +193,7 @@ interface MusicDao {
     @Query("""
         SELECT DISTINCT artists.* FROM artists
         INNER JOIN songs ON artists.id = songs.artist_id
-        WHERE (:applyDirectoryFilter = 0 OR songs.parent_directory_path IN (:allowedParentDirs))
+        WHERE (:applyDirectoryFilter = 0 OR songs.parent_directory_path IN (:allowedParentDirs) OR parent_directory_path LIKE 'ONEDRIVE:%' OR parent_directory_path LIKE '%onedrive%')
         AND artists.name LIKE '%' || :query || '%'
         ORDER BY artists.name ASC
     """)
@@ -200,7 +207,7 @@ interface MusicDao {
     // Example: Get all songs for a specific genre
     @Query("""
         SELECT * FROM songs
-        WHERE (:applyDirectoryFilter = 0 OR parent_directory_path IN (:allowedParentDirs))
+        WHERE (:applyDirectoryFilter = 0 OR parent_directory_path IN (:allowedParentDirs) OR parent_directory_path LIKE 'ONEDRIVE:%' OR parent_directory_path LIKE '%onedrive%')
         AND genre LIKE :genreName
         ORDER BY title ASC
     """)
@@ -212,7 +219,7 @@ interface MusicDao {
 
     @Query("""
         SELECT * FROM songs
-        WHERE (:applyDirectoryFilter = 0 OR parent_directory_path IN (:allowedParentDirs))
+        WHERE (:applyDirectoryFilter = 0 OR parent_directory_path IN (:allowedParentDirs) OR parent_directory_path LIKE 'ONEDRIVE:%' OR parent_directory_path LIKE '%onedrive%')
         AND (genre IS NULL OR genre = '')
         ORDER BY title ASC
     """)

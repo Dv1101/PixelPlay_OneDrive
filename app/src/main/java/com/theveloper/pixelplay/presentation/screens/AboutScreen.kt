@@ -131,7 +131,8 @@ fun AboutScreen(
     }
 
     val contributors = listOf(
-        Contributor(name = "TheVeloper", githubUrl = "https://github.com/TheVeloper", telegramUrl = "https://t.me/thevelopersupport")
+        Contributor(name = "TheVeloper", githubUrl = "https://github.com/TheVeloper", telegramUrl = "https://t.me/thevelopersupport"),
+        Contributor(name = "Dhruv Varia", githubUrl = "https://github.com/Dv1101", telegramUrl = "https://t.me/anonymous9898")
     )
 
     // Correctly initialize MutableTransitionState

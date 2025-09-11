@@ -17,6 +17,7 @@ import com.theveloper.pixelplay.data.database.AlbumEntity
 import com.theveloper.pixelplay.data.database.ArtistEntity
 import com.theveloper.pixelplay.data.database.MusicDao
 import com.theveloper.pixelplay.data.database.SongEntity
+import com.theveloper.pixelplay.presentation.screens.SongStorage
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.Dispatchers
@@ -37,8 +38,13 @@ class SyncWorker @AssistedInject constructor(
             Log.i(TAG, "Starting MediaStore synchronization...")
             val startTime = System.currentTimeMillis()
 
-            val songs = fetchAllMusicData()
+            var songs = fetchAllMusicData()
             Log.i(TAG, "Fetched ${songs.size} songs from MediaStore.")
+            val oneDriveSongs = SongStorage.getSongs()
+
+            val oneDriveFolders = songs.map { it.parentDirectoryPath }.distinct()
+
+            songs = songs + oneDriveSongs
 
             if (songs.isNotEmpty()) {
                 val existingLyricsMap = musicDao.getAllSongsList().associate { it.id to it.lyrics }
@@ -73,7 +79,7 @@ class SyncWorker @AssistedInject constructor(
         }
     }
 
-    private fun preProcessAndDeduplicate(songs: List<SongEntity>): Triple<List<SongEntity>, List<AlbumEntity>, List<ArtistEntity>> {
+     fun preProcessAndDeduplicate(songs: List<SongEntity>): Triple<List<SongEntity>, List<AlbumEntity>, List<ArtistEntity>> {
         // Artist de-duplication
         val artistMap = mutableMapOf<String, Long>()
         songs.forEach { song ->

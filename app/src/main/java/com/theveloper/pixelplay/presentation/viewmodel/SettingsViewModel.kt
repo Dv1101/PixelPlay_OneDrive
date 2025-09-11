@@ -2,6 +2,7 @@ package com.theveloper.pixelplay.presentation.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.theveloper.pixelplay.data.database.MusicDao
 import com.theveloper.pixelplay.data.model.DirectoryItem
 import com.theveloper.pixelplay.data.preferences.ThemePreference
 import com.theveloper.pixelplay.data.preferences.UserPreferencesRepository
@@ -25,9 +26,10 @@ data class SettingsUiState(
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
-    private val userPreferencesRepository: UserPreferencesRepository,
+    val userPreferencesRepository: UserPreferencesRepository,
     private val musicRepository: MusicRepository,
-    private val syncManager: SyncManager
+    private val syncManager: SyncManager,
+    val musicDao: MusicDao
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SettingsUiState())

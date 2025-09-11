@@ -1,3 +1,4 @@
+
 package com.theveloper.pixelplay.data.repository
 
 import android.content.ContentResolver
@@ -590,7 +591,7 @@ class MusicRepositoryImpl @Inject constructor(
                 // 4. Parse and return lyrics
                 val lines = lyricsFromFile.lines()
                 val isLrc = lines.any { it.matches(Regex("\\[\\d{2}:\\d{2}\\.\\d{2,3}].*")) }
-                 if (isLrc) {
+                if (isLrc) {
                     val syncedLines = lines.mapNotNull { line ->
                         val match = Regex("\\[(\\d{2}):(\\d{2})\\.(\\d{2,3})](.*)").find(line)
                         if (match != null) {
@@ -640,7 +641,7 @@ class MusicRepositoryImpl @Inject constructor(
                 val plain = response.plainLyrics?.lines() ?: synced?.map { it.line }
 
                 if (synced.isNullOrEmpty() && plain.isNullOrEmpty()) {
-                     return@withContext Result.failure(Exception("No lyrics found for this song."))
+                    return@withContext Result.failure(Exception("No lyrics found for this song."))
                 }
 
                 val parsedLyrics = Lyrics(
