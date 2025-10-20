@@ -156,7 +156,12 @@ fun QueueBottomSheet(
                 val fromSong = displayQueue[fromIndex]
                 val fromOriginalIndex = queue.indexOfFirst { it.id == fromSong.id }
 
-                val toSong = items[toIndex]
+                // FIX: The `to` index must be derived from the stable `displayQueue`.
+                // The `items` list is a temporary state for the drag animation and using it
+                // to find the destination song is incorrect because `items[toIndex]` will
+                // point to the song that was just moved. By using `displayQueue`, we get
+                // the song that was at the destination index *before* the drag operation.
+                val toSong = displayQueue[toIndex]
                 val toOriginalIndex = queue.indexOfFirst { it.id == toSong.id }
 
                 if (fromOriginalIndex != -1 && toOriginalIndex != -1) {
@@ -272,17 +277,8 @@ fun QueueBottomSheet(
                                             scaleX = scale
                                             scaleY = scale
                                         }
-                                        .clip(AbsoluteSmoothCornerShape(
-                                            cornerRadiusTR = 22.dp,
-                                            smoothnessAsPercentTL = 60,
-                                            cornerRadiusTL = 22.dp,
-                                            smoothnessAsPercentTR = 60,
-                                            cornerRadiusBR = 22.dp,
-                                            smoothnessAsPercentBL = 60,
-                                            cornerRadiusBL = 22.dp,
-                                            smoothnessAsPercentBR = 60
-                                        ))
-                                        .clickable { onPlaySong(song) },
+                                    ,
+                                    onClick = { onPlaySong(song) },
                                     song = song,
                                     isCurrentSong = song.id == currentSongId,
                                     isPlaying = isPlaying,
@@ -297,10 +293,16 @@ fun QueueBottomSheet(
                                             modifier = Modifier
                                                 .draggableHandle(
                                                     onDragStarted = {
-                                                        ViewCompat.performHapticFeedback(view, HapticFeedbackConstantsCompat.GESTURE_START)
+                                                        ViewCompat.performHapticFeedback(
+                                                            view,
+                                                            HapticFeedbackConstantsCompat.GESTURE_START
+                                                        )
                                                     },
                                                     onDragStopped = {
-                                                        ViewCompat.performHapticFeedback(view, HapticFeedbackConstantsCompat.GESTURE_END)
+                                                        ViewCompat.performHapticFeedback(
+                                                            view,
+                                                            HapticFeedbackConstantsCompat.GESTURE_END
+                                                        )
                                                     }
                                                 )
                                                 .size(40.dp)
@@ -319,7 +321,6 @@ fun QueueBottomSheet(
                 }
             }
 
-            // Floating Toolbar remains the same
             HorizontalFloatingToolbar(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
@@ -431,6 +432,7 @@ fun QueueBottomSheet(
 @Composable
 fun QueuePlaylistSongItem(
     modifier: Modifier = Modifier,
+    onClick: () -> Unit,
     song: Song,
     isCurrentSong: Boolean,
     isPlaying: Boolean? = null,
@@ -442,14 +444,36 @@ fun QueuePlaylistSongItem(
     isRemoveButtonVisible: Boolean
 ) {
     val colors = MaterialTheme.colorScheme
+
+    val cornerRadius by animateDpAsState(
+        targetValue = if (isCurrentSong) 60.dp else 22.dp,
+        label = "cornerRadiusAnimation"
+    )
+
     val itemShape = AbsoluteSmoothCornerShape(
-        cornerRadiusTR = 22.dp,
+        cornerRadiusTR = cornerRadius,
         smoothnessAsPercentTL = 60,
-        cornerRadiusTL = 22.dp,
+        cornerRadiusTL = cornerRadius,
         smoothnessAsPercentTR = 60,
-        cornerRadiusBR = 22.dp,
+        cornerRadiusBR = cornerRadius,
         smoothnessAsPercentBL = 60,
-        cornerRadiusBL = 22.dp,
+        cornerRadiusBL = cornerRadius,
+        smoothnessAsPercentBR = 60
+    )
+
+    val albumCornerRadius by animateDpAsState(
+        targetValue = if (isCurrentSong) 60.dp else 8.dp,
+        label = "cornerRadiusAnimation"
+    )
+
+    val albumShape = AbsoluteSmoothCornerShape(
+        cornerRadiusTR = albumCornerRadius,
+        smoothnessAsPercentTL = 60,
+        cornerRadiusTL = albumCornerRadius,
+        smoothnessAsPercentTR = 60,
+        cornerRadiusBR = albumCornerRadius,
+        smoothnessAsPercentBL = 60,
+        cornerRadiusBL = albumCornerRadius,
         smoothnessAsPercentBR = 60
     )
 
@@ -464,7 +488,11 @@ fun QueuePlaylistSongItem(
     )
 
     Surface(
-        modifier = modifier.clip(itemShape),
+        modifier = modifier
+            .clip(itemShape)
+            .clickable {
+                onClick()
+            },
         shape = itemShape,
         color = backgroundColor,
         tonalElevation = elevation,
@@ -486,9 +514,11 @@ fun QueuePlaylistSongItem(
 
             SmartImage(
                 model = song.albumArtUriString,
-                shape = RoundedCornerShape(8.dp),
+                shape = albumShape,
                 contentDescription = "Carátula",
-                modifier = Modifier.size(42.dp).clip(RoundedCornerShape(8.dp)),
+                modifier = Modifier
+                    .size(42.dp)
+                    .clip(albumShape),
                 contentScale = ContentScale.Crop
             )
 
@@ -518,6 +548,9 @@ fun QueuePlaylistSongItem(
                         isPlaying = isPlaying  // o conectalo a tu estado real de reproducción
                     )
                     Spacer(Modifier.width(4.dp))
+                    if (!isRemoveButtonVisible){
+                        Spacer(Modifier.width(8.dp))
+                    }
                 }
             } else {
                 Spacer(Modifier.width(8.dp))
@@ -538,7 +571,7 @@ fun QueuePlaylistSongItem(
                     Icon(
                         modifier = Modifier.size(18.dp),
                         painter = painterResource(R.drawable.rounded_close_24),
-                        contentDescription = "Quitar de la playlist",
+                        contentDescription = "Remove from playlist",
                     )
                 }
             }

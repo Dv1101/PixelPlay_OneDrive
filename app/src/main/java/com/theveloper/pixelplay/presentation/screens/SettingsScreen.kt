@@ -39,6 +39,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.outlined.ClearAll
+import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.FolderOff
 import androidx.compose.material.icons.outlined.PlayCircle
@@ -49,12 +51,18 @@ import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.Warning
 import androidx.compose.material.icons.rounded.Palette
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuBoxScope
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -64,6 +72,7 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -105,6 +114,7 @@ import androidx.media3.common.util.UnstableApi
 import androidx.navigation.NavController
 import com.theveloper.pixelplay.R
 import com.theveloper.pixelplay.data.model.DirectoryItem
+import com.theveloper.pixelplay.data.preferences.CarouselStyle
 import com.theveloper.pixelplay.data.preferences.NavBarStyle
 import com.theveloper.pixelplay.data.preferences.ThemePreference
 import com.theveloper.pixelplay.presentation.components.MiniPlayerHeight
@@ -191,6 +201,7 @@ fun SettingsScreen(
     val playerSheetState by playerViewModel.sheetState.collectAsState()
     // Estado para controlar la visibilidad del diálogo de directorios
     var showDirectoryDialog by remember { mutableStateOf(false) }
+    var showClearLyricsDialog by remember { mutableStateOf(false) }
 
     BackHandler(enabled = playerSheetState == PlayerSheetState.EXPANDED) {
         playerViewModel.collapsePlayerSheet()
@@ -294,7 +305,7 @@ fun SettingsScreen(
             contentPadding = PaddingValues(top = currentTopBarHeightDp),
             modifier = Modifier.fillMaxSize()
         ) {
-            item {
+            item(key = "music_management_section") {
                 // Sección de gestión de música
                 SettingsSection(
                     title = "Music Management",
@@ -339,13 +350,26 @@ fun SettingsScreen(
                             },
                             onClick = { settingsViewModel.refreshLibrary() }
                         )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        SettingsItem(
+                            title = "Reset Imported Lyrics",
+                            subtitle = "Remove all imported lyrics from the database.",
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Outlined.ClearAll,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.secondary
+                                )
+                            },
+                            onClick = { showClearLyricsDialog = true }
+                        )
                     }
                 }
             }
 
-            item { Spacer(modifier = Modifier.height(16.dp)) }
+            item(key = "spacer_1") { Spacer(modifier = Modifier.height(16.dp)) }
 
-            item {
+            item(key = "appearance_section") {
                 // Sección de apariencia
                 SettingsSection(
                     title = "Appearance",
@@ -419,13 +443,32 @@ fun SettingsScreen(
                                 onClick = { navController.navigate("nav_bar_corner_radius") }
                             )
                         }
+                        Spacer(modifier = Modifier.height(4.dp))
+                        ThemeSelectorItem(
+                            label = "Carousel Style",
+                            description = "Choose the appearance for the album carousel.",
+                            options = mapOf(
+                                CarouselStyle.NO_PEEK to "No Peek",
+                                CarouselStyle.ONE_PEEK to "One Peek",
+                                //CarouselStyle.TWO_PEEK to "Two Peeks"
+                            ),
+                            selectedKey = uiState.carouselStyle,
+                            onSelectionChanged = { settingsViewModel.setCarouselStyle(it) },
+                            leadingIcon = {
+                                Icon(
+                                    painter = painterResource(id = R.drawable.rounded_view_carousel_24),
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.secondary
+                                )
+                            }
+                        )
                     }
                 }
             }
 
-            item { Spacer(modifier = Modifier.height(16.dp)) }
+            item(key = "spacer_2") { Spacer(modifier = Modifier.height(16.dp)) }
 
-            item {
+            item(key = "ai_section") {
                 SettingsSection(
                     title = "AI Integration (Beta)",
                     icon = {
@@ -445,9 +488,9 @@ fun SettingsScreen(
                 }
             }
 
-            item { Spacer(modifier = Modifier.height(16.dp)) }
+            item(key = "spacer_3") { Spacer(modifier = Modifier.height(16.dp)) }
 
-            item {
+            item(key = "dev_options_section") {
                 // Sección de Opciones de Desarrollador
                 SettingsSection(
                     title = "Developer Options",
@@ -480,9 +523,9 @@ fun SettingsScreen(
                 }
             }
 
-            item { Spacer(modifier = Modifier.height(16.dp)) }
+            item(key = "spacer_4") { Spacer(modifier = Modifier.height(16.dp)) }
 
-            item {
+            item(key = "about_section") {
                 // About section
                 SettingsSection(
                     title = "About",
@@ -522,7 +565,7 @@ fun SettingsScreen(
                 }
             }
 
-            item { Spacer(modifier = Modifier.height(MiniPlayerHeight + 36.dp)) }
+            item(key = "bottom_spacer") { Spacer(modifier = Modifier.height(MiniPlayerHeight + 36.dp)) }
         }
         SettingsTopBar(
             collapseFraction = collapseFraction,
@@ -539,6 +582,46 @@ fun SettingsScreen(
             onDismiss = { showDirectoryDialog = false },
             onItemToggle = { directoryItem ->
                 settingsViewModel.toggleDirectoryAllowed(directoryItem)
+            }
+        )
+    }
+
+    // Reset lyrics dialog
+    if (showClearLyricsDialog) {
+        AlertDialog(
+            icon = {
+                Icon(
+                    imageVector = Icons.Outlined.Warning,
+                    contentDescription = null
+                )
+            },
+            title = {
+                Text(text = "Reset imported lyrics?")
+            },
+            text = {
+                Text(text = "This action cannot be undone.")
+            },
+            onDismissRequest = {
+                showClearLyricsDialog = false
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showClearLyricsDialog = false
+                        playerViewModel.resetAllLyrics()
+                    }
+                ) {
+                    Text("Confirm")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        showClearLyricsDialog = false
+                    }
+                ) {
+                    Text("Cancel")
+                }
             }
         )
     }
@@ -1030,6 +1113,18 @@ fun GeminiApiKeyItem(
     title: String,
     subtitle: String
 ) {
+    val settingsViewModel: SettingsViewModel = hiltViewModel()
+    val uiState by settingsViewModel.uiState.collectAsState()
+    val selectedModel by settingsViewModel.geminiModel.collectAsState()
+    var isModelDropdownExpanded by remember { mutableStateOf(false) }
+
+    // Fetch models when API key becomes available
+    LaunchedEffect(apiKey) {
+        if (apiKey.isNotBlank() && uiState.availableModels.isEmpty() && !uiState.isLoadingModels) {
+            settingsViewModel.fetchAvailableModels(apiKey)
+        }
+    }
+
     Surface(
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
         modifier = Modifier
@@ -1096,7 +1191,7 @@ fun GeminiApiKeyItem(
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            if (apiKey == "") {
+            if (apiKey.isBlank()) {
                 val context = LocalContext.current
                 val url = "https://aistudio.google.com/app/apikey"
                 val annotatedString = buildAnnotatedString {
@@ -1118,6 +1213,281 @@ fun GeminiApiKeyItem(
                         context.startActivity(intent)
                     }
                 )
+            } else {
+                // Show model selector when API key is present
+                Spacer(modifier = Modifier.height(6.dp))
+
+                Text(
+                    text = "Model",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+
+                ExposedDropdownMenuBox(
+                    expanded = isModelDropdownExpanded,
+                    onExpandedChange = {
+                        if (!uiState.isLoadingModels && uiState.availableModels.isNotEmpty()) {
+                            isModelDropdownExpanded = !isModelDropdownExpanded
+                        }
+                    }
+                ) {
+                    OutlinedTextField(
+                        value = uiState.availableModels.find { it.name == selectedModel }?.displayName
+                            ?: selectedModel.ifEmpty { "Select a model" },
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Gemini Model") },
+                        trailingIcon = {
+                            if (uiState.isLoadingModels) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(20.dp),
+                                    strokeWidth = 2.dp
+                                )
+                            } else {
+                                ExposedDropdownMenuDefaults.TrailingIcon(expanded = isModelDropdownExpanded)
+                            }
+                        },
+                        modifier = Modifier
+                            .menuAnchor(),
+//                            .menuAnchor(ExposedDropdownMenuBoxScope.MenuAnchorType.PrimaryNotEditable),
+                        shape = RoundedCornerShape(10.dp),
+                        enabled = !uiState.isLoadingModels && uiState.availableModels.isNotEmpty()
+                    )
+
+                    ExposedDropdownMenu(
+                        expanded = isModelDropdownExpanded,
+                        onDismissRequest = { isModelDropdownExpanded = false }
+                    ) {
+                        uiState.availableModels.forEach { model ->
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        text = model.displayName,
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
+                                },
+                                onClick = {
+                                    settingsViewModel.onGeminiModelChange(model.name)
+                                    isModelDropdownExpanded = false
+                                },
+                                contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding
+                            )
+                        }
+                    }
+                }
+
+                if (uiState.isLoadingModels) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Fetching available models...",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                if (uiState.modelsFetchError != null) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Error: ${uiState.modelsFetchError}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+
+                // System Prompt Section
+                Spacer(modifier = Modifier.height(16.dp))
+
+                val systemPrompt by settingsViewModel.geminiSystemPrompt.collectAsState()
+                var showSystemPromptDialog by remember { mutableStateOf(false) }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "System Prompt",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    TextButton(
+                        onClick = { showSystemPromptDialog = true }
+                    ) {
+                        Text("Modify")
+                    }
+                }
+
+                if (showSystemPromptDialog) {
+                    SystemPromptDialog(
+                        currentPrompt = systemPrompt,
+                        onDismiss = { showSystemPromptDialog = false },
+                        onSave = { newPrompt ->
+                            settingsViewModel.onGeminiSystemPromptChange(newPrompt)
+                            showSystemPromptDialog = false
+                        },
+                        onReset = {
+                            settingsViewModel.resetGeminiSystemPrompt()
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SystemPromptDialog(
+    currentPrompt: String,
+    onDismiss: () -> Unit,
+    onSave: (String) -> Unit,
+    onReset: () -> Unit
+) {
+    var editedPrompt by remember { mutableStateOf(currentPrompt) }
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+
+    LaunchedEffect(currentPrompt) {
+        editedPrompt = currentPrompt
+    }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        modifier = Modifier.fillMaxHeight(1f),
+        dragHandle = { BottomSheetDefaults.DragHandle() }
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 24.dp)
+        ) {
+            // Header
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "System Prompt",
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+
+                TextButton(
+                    onClick = {
+                        onReset()
+                        // Reset the edited prompt to the default value immediately
+                        editedPrompt = com.theveloper.pixelplay.data.preferences.UserPreferencesRepository.DEFAULT_SYSTEM_PROMPT
+                    }
+                ) {
+                    Text("Reset")
+                }
+            }
+
+            Text(
+                text = "Customize the AI's behavior and personality by modifying the system prompt.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(bottom = 16.dp)
+            )
+
+            // Text field for editing prompt with floating clear button
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+            ) {
+                OutlinedTextField(
+                    value = editedPrompt,
+                    onValueChange = { editedPrompt = it },
+                    modifier = Modifier.fillMaxSize(),
+                    placeholder = { Text("Enter system prompt...") },
+                    shape = RoundedCornerShape(16.dp),
+                    minLines = 8,
+                    maxLines = 20,
+                    textStyle = MaterialTheme.typography.bodyMedium
+                )
+
+                // Floating clear button
+                if (editedPrompt.isNotEmpty()) {
+                    FloatingActionButton(
+                        onClick = { editedPrompt = "" },
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(16.dp)
+                            .size(48.dp),
+                        containerColor = MaterialTheme.colorScheme.errorContainer,
+                        contentColor = MaterialTheme.colorScheme.onErrorContainer
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Delete,
+                            contentDescription = "Clear all text"
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Action buttons
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 24.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                TextButton(
+                    onClick = {
+                        scope.launch {
+                            sheetState.hide()
+                            onDismiss()
+                        }
+                    },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("Cancel")
+                }
+
+                FilledIconButton(
+                    onClick = {
+                        scope.launch {
+                            onSave(editedPrompt)
+                            // Show toast
+                            android.widget.Toast.makeText(
+                                context,
+                                "System prompt saved successfully",
+                                android.widget.Toast.LENGTH_SHORT
+                            ).show()
+                            // Smooth dismiss animation
+                            sheetState.hide()
+                            onDismiss()
+                        }
+                    },
+                    modifier = Modifier.weight(1f),
+                    colors = IconButtonDefaults.filledIconButtonColors(
+                        containerColor = MaterialTheme.colorScheme.primary
+                    )
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center,
+                        modifier = Modifier.padding(horizontal = 16.dp)
+                    ) {
+                        Text(
+                            text = "Save",
+                            color = MaterialTheme.colorScheme.onPrimary,
+                            style = MaterialTheme.typography.labelLarge
+                        )
+                    }
+                }
             }
         }
     }

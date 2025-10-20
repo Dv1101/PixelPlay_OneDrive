@@ -203,7 +203,7 @@ fun ArtistDetailScreen(
                             )
                         }
 
-                        item { Spacer(modifier = Modifier.height(MiniPlayerHeight + 16.dp)) }
+                        item(key = "bottom_spacer") { Spacer(modifier = Modifier.height(MiniPlayerHeight + 16.dp)) }
                     }
 
                     CustomCollapsingTopBar(
@@ -368,7 +368,7 @@ private fun CustomCollapsingTopBar(
                     )
 
                     Text(
-                        text = "$songsCount canciones",
+                        text = "$songsCount songs",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,

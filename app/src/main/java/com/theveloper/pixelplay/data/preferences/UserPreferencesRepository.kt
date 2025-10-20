@@ -41,6 +41,8 @@ class UserPreferencesRepository @Inject constructor(
 
     private object PreferencesKeys {
         val GEMINI_API_KEY = stringPreferencesKey("gemini_api_key")
+        val GEMINI_MODEL = stringPreferencesKey("gemini_model")
+        val GEMINI_SYSTEM_PROMPT = stringPreferencesKey("gemini_system_prompt")
         val ALLOWED_DIRECTORIES = stringSetPreferencesKey("allowed_directories")
         val INITIAL_SETUP_DONE = booleanPreferencesKey("initial_setup_done")
         // val GLOBAL_THEME_PREFERENCE = stringPreferencesKey("global_theme_preference_v2") // Removed
@@ -62,9 +64,12 @@ class UserPreferencesRepository @Inject constructor(
         val DAILY_MIX_SONG_IDS = stringPreferencesKey("daily_mix_song_ids")
         val NAV_BAR_CORNER_RADIUS = intPreferencesKey("nav_bar_corner_radius")
         val NAV_BAR_STYLE = stringPreferencesKey("nav_bar_style")
+        val CAROUSEL_STYLE = stringPreferencesKey("carousel_style")
 
         // Transition Settings
         val GLOBAL_TRANSITION_SETTINGS = stringPreferencesKey("global_transition_settings_json")
+        val LIBRARY_TABS_ORDER = stringPreferencesKey("library_tabs_order")
+        val IS_FOLDER_FILTER_ACTIVE = booleanPreferencesKey("is_folder_filter_active")
     }
 
     val globalTransitionSettingsFlow: Flow<TransitionSettings> = dataStore.data
@@ -342,6 +347,36 @@ class UserPreferencesRepository @Inject constructor(
         }
     }
 
+    val geminiModel: Flow<String> = dataStore.data.map { preferences ->
+        preferences[PreferencesKeys.GEMINI_MODEL] ?: ""
+    }
+
+    suspend fun setGeminiModel(model: String) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.GEMINI_MODEL] = model
+        }
+    }
+
+    companion object {
+        const val DEFAULT_SYSTEM_PROMPT = "You are a helpful AI assistant integrated into a music player app. You help users create perfect playlists based on their request."
+    }
+
+    val geminiSystemPrompt: Flow<String> = dataStore.data.map { preferences ->
+        preferences[PreferencesKeys.GEMINI_SYSTEM_PROMPT] ?: DEFAULT_SYSTEM_PROMPT
+    }
+
+    suspend fun setGeminiSystemPrompt(prompt: String) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.GEMINI_SYSTEM_PROMPT] = prompt
+        }
+    }
+
+    suspend fun resetGeminiSystemPrompt() {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.GEMINI_SYSTEM_PROMPT] = DEFAULT_SYSTEM_PROMPT
+        }
+    }
+
     val navBarCornerRadiusFlow: Flow<Int> = dataStore.data
         .map { preferences ->
             preferences[PreferencesKeys.NAV_BAR_CORNER_RADIUS] ?: 32
@@ -363,4 +398,68 @@ class UserPreferencesRepository @Inject constructor(
             preferences[PreferencesKeys.NAV_BAR_STYLE] = style
         }
     }
+
+    val carouselStyleFlow: Flow<String> = dataStore.data
+        .map { preferences ->
+            preferences[PreferencesKeys.CAROUSEL_STYLE] ?: CarouselStyle.ONE_PEEK
+        }
+
+    suspend fun setCarouselStyle(style: String) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.CAROUSEL_STYLE] = style
+        }
+    }
+
+    val libraryTabsOrderFlow: Flow<String?> = dataStore.data
+        .map { preferences ->
+            preferences[PreferencesKeys.LIBRARY_TABS_ORDER]
+        }
+
+    suspend fun saveLibraryTabsOrder(order: String) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.LIBRARY_TABS_ORDER] = order
+        }
+    }
+
+    suspend fun resetLibraryTabsOrder() {
+        dataStore.edit { preferences ->
+            preferences.remove(PreferencesKeys.LIBRARY_TABS_ORDER)
+        }
+    }
+
+    suspend fun migrateTabOrder() {
+        dataStore.edit { preferences ->
+            val orderJson = preferences[PreferencesKeys.LIBRARY_TABS_ORDER]
+            if (orderJson != null) {
+                try {
+                    val order = json.decodeFromString<MutableList<String>>(orderJson)
+                    if (!order.contains("FOLDERS")) {
+                        val likedIndex = order.indexOf("LIKED")
+                        if (likedIndex != -1) {
+                            order.add(likedIndex + 1, "FOLDERS")
+                        } else {
+                            order.add("FOLDERS") // Fallback
+                        }
+                        preferences[PreferencesKeys.LIBRARY_TABS_ORDER] = json.encodeToString(order)
+                    }
+                } catch (e: Exception) {
+                    // Si la deserialización falla, no hacemos nada para evitar sobrescribir los datos del usuario.
+                }
+            }
+            // Si orderJson es nulo, significa que el usuario nunca ha reordenado,
+            // por lo que se utilizará el orden predeterminado que ya incluye FOLDERS.
+        }
+    }
+
+    val isFolderFilterActiveFlow: Flow<Boolean> = dataStore.data
+        .map { preferences ->
+            preferences[PreferencesKeys.IS_FOLDER_FILTER_ACTIVE] ?: false
+        }
+
+    suspend fun setFolderFilterActive(isActive: Boolean) {
+        dataStore.edit { preferences ->
+            preferences[PreferencesKeys.IS_FOLDER_FILTER_ACTIVE] = isActive
+        }
+    }
 }
+

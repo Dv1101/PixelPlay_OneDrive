@@ -1,4 +1,3 @@
-
 package com.theveloper.pixelplay.data.repository
 
 import android.content.ContentResolver
@@ -8,6 +7,7 @@ import android.database.Cursor
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.Environment
 import android.provider.MediaStore
 import android.util.Log
 import com.theveloper.pixelplay.data.model.Song
@@ -30,7 +30,9 @@ import com.theveloper.pixelplay.data.model.Playlist
 import com.theveloper.pixelplay.data.model.SearchFilterType
 import com.theveloper.pixelplay.data.model.SearchHistoryItem
 import com.theveloper.pixelplay.data.model.SearchResultItem
+import com.theveloper.pixelplay.data.model.SortOption
 import com.theveloper.pixelplay.data.preferences.UserPreferencesRepository
+import androidx.sqlite.db.SimpleSQLiteQuery
 
 import com.theveloper.pixelplay.data.model.Genre
 import com.theveloper.pixelplay.data.database.SongEntity
@@ -39,9 +41,10 @@ import com.theveloper.pixelplay.data.database.toArtist
 import com.theveloper.pixelplay.data.database.toSong
 import com.theveloper.pixelplay.data.model.Lyrics
 import com.theveloper.pixelplay.data.model.SyncedLine
-import com.theveloper.pixelplay.data.network.lyrics.LrcLibApiService
 import com.theveloper.pixelplay.utils.LogUtils
+import com.theveloper.pixelplay.data.model.MusicFolder
 import com.theveloper.pixelplay.utils.LyricsUtils
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first // Still needed for initialSetupDoneFlow.first() if used that way
@@ -65,7 +68,7 @@ class MusicRepositoryImpl @Inject constructor(
     private val userPreferencesRepository: UserPreferencesRepository,
     private val searchHistoryDao: SearchHistoryDao,
     private val musicDao: MusicDao,
-    private val lrcLibApiService: LrcLibApiService
+    private val lyricsRepository: LyricsRepository
 ) : MusicRepository {
 
     private val directoryScanMutex = Mutex()
@@ -554,6 +557,7 @@ class MusicRepositoryImpl @Inject constructor(
     }
 
     override suspend fun getLyrics(song: Song): Lyrics? {
+        return lyricsRepository.getLyrics(song)
         // 1. Check if lyrics are already in the song object (from DB)
         if (!song.lyrics.isNullOrBlank()) {
             val lines = song.lyrics.lines()
@@ -622,41 +626,112 @@ class MusicRepositoryImpl @Inject constructor(
      * @param song La canción para la cual se buscará la letra.
      * @return Un objeto Result que contiene el objeto Lyrics si se encontró, o un error.
      */
-    override suspend fun getLyricsFromRemote(song: Song): Result<Pair<Lyrics, String>> = withContext(Dispatchers.IO) {
-        try {
-            val response = lrcLibApiService.getLyrics(
-                trackName = song.title,
-                artistName = song.artist,
-                albumName = song.album,
-                duration = (song.duration / 1000).toInt()
-            )
+    override suspend fun getLyricsFromRemote(song: Song): Result<Pair<Lyrics, String>> {
+        return lyricsRepository.fetchFromRemote(song)
+    }
 
-            if (response != null && (!response.syncedLyrics.isNullOrEmpty() || !response.plainLyrics.isNullOrEmpty())) {
-                // Prioritize synced for saving, but parse both for returning
-                val rawLyricsToSave = response.syncedLyrics ?: response.plainLyrics!!
-                musicDao.updateLyrics(song.id.toLong(), rawLyricsToSave)
+    override suspend fun searchRemoteLyrics(song: Song): Result<Pair<String, List<LyricsSearchResult>>> {
+        return lyricsRepository.searchRemote(song)
+    }
 
-                val synced = response.syncedLyrics?.let { LyricsUtils.parseLyrics(it).synced }
-                // If we have plain lyrics from the API, use them. Otherwise, create plain lyrics from the synced ones.
-                val plain = response.plainLyrics?.lines() ?: synced?.map { it.line }
+    override suspend fun updateLyrics(songId: Long, lyrics: String) {
+        lyricsRepository.updateLyrics(songId, lyrics)
+    }
 
+    override suspend fun resetLyrics(songId: Long) {
+        lyricsRepository.resetLyrics(songId)
+    }
                 if (synced.isNullOrEmpty() && plain.isNullOrEmpty()) {
                     return@withContext Result.failure(Exception("No lyrics found for this song."))
                 }
 
-                val parsedLyrics = Lyrics(
-                    plain = plain,
-                    synced = synced,
-                    areFromRemote = true
-                )
+    override suspend fun resetAllLyrics() {
+        lyricsRepository.resetAllLyrics()
+    }
 
-                Result.success(Pair(parsedLyrics, rawLyricsToSave))
+    override fun getMusicFolders(): Flow<List<MusicFolder>> {
+        return combine(
+            getAudioFiles(),
+            userPreferencesRepository.allowedDirectoriesFlow,
+            userPreferencesRepository.isFolderFilterActiveFlow
+        ) { songs, allowedDirs, isFolderFilterActive ->
+            val songsToProcess = if (isFolderFilterActive) {
+                songs.filter { song ->
+                    val songDir = File(song.path).parentFile ?: return@filter false
+                    allowedDirs.any { allowedDir -> songDir.path.startsWith(allowedDir) }
+                }
             } else {
-                Result.failure(Exception("No lyrics found for this song."))
+                songs
             }
-        } catch (e: Exception) {
-            Log.e("MusicRepositoryImpl", "Error fetching lyrics from remote", e)
-            Result.failure(e)
-        }
+
+            if (songsToProcess.isEmpty()) return@combine emptyList()
+
+            data class TempFolder(
+                val path: String,
+                val name: String,
+                val songs: MutableList<Song> = mutableListOf(),
+                val subFolderPaths: MutableSet<String> = mutableSetOf()
+            )
+
+            val tempFolders = mutableMapOf<String, TempFolder>()
+
+            for (song in songsToProcess) {
+                try {
+                    val songFile = File(song.path)
+                    var currentFile = songFile.parentFile
+                    while (currentFile != null) {
+                        val path = currentFile.path
+                        val name = currentFile.name
+                        val tempFolder = tempFolders.getOrPut(path) { TempFolder(path, name) }
+
+                        if (path == songFile.parent) {
+                            tempFolder.songs.add(song)
+                        }
+                        currentFile.parentFile?.let { parent ->
+                            tempFolders.getOrPut(parent.path) { TempFolder(parent.path, parent.name) }
+                                .subFolderPaths.add(path)
+                        }
+                        currentFile = currentFile.parentFile
+                    }
+                } catch (e: Exception) {
+                     Log.e("MusicRepositoryImpl", "Error processing song path for folders: ${song.path}", e)
+                }
+            }
+
+            fun buildImmutableFolder(path: String, visited: MutableSet<String>): MusicFolder? {
+                if (path in visited) return null
+                visited.add(path)
+                val tempFolder = tempFolders[path] ?: return null
+                val subFolders = tempFolder.subFolderPaths
+                    .mapNotNull { subPath -> buildImmutableFolder(subPath, visited.toMutableSet()) }
+                    .sortedBy { it.name }
+                    .toImmutableList()
+                return MusicFolder(
+                    path = tempFolder.path,
+                    name = tempFolder.name,
+                    songs = tempFolder.songs.sortedBy { it.title }.toImmutableList(),
+                    subFolders = subFolders
+                )
+            }
+
+            val storageRootPath = Environment.getExternalStorageDirectory().path
+            val rootTempFolder = tempFolders[storageRootPath]
+
+            val result = rootTempFolder?.subFolderPaths?.mapNotNull { path ->
+                buildImmutableFolder(path, mutableSetOf())
+            }?.filter { it.totalSongCount > 0 }?.sortedBy { it.name } ?: emptyList()
+
+            // Fallback for devices that might not use the standard storage root path
+            if (result.isEmpty() && tempFolders.isNotEmpty()) {
+                 val allSubFolderPaths = tempFolders.values.flatMap { it.subFolderPaths }.toSet()
+                 val topLevelPaths = tempFolders.keys - allSubFolderPaths
+                 return@combine topLevelPaths
+                     .mapNotNull { buildImmutableFolder(it, mutableSetOf()) }
+                     .filter { it.totalSongCount > 0 }
+                     .sortedBy { it.name }
+             }
+
+            result
+        }.flowOn(Dispatchers.IO)
     }
 }

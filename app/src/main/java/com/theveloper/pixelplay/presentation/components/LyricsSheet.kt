@@ -2,6 +2,7 @@ package com.theveloper.pixelplay.presentation.components
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -13,6 +14,9 @@ import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ClearAll
+import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
@@ -26,15 +30,22 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.theveloper.pixelplay.R
+import com.theveloper.pixelplay.data.model.SyncedLine
+import com.theveloper.pixelplay.data.repository.LyricsRepository
+import com.theveloper.pixelplay.data.repository.LyricsSearchResult
 import com.theveloper.pixelplay.presentation.screens.TabAnimation
+import com.theveloper.pixelplay.presentation.components.subcomps.FetchLyricsDialog
 import com.theveloper.pixelplay.presentation.components.subcomps.PlayerSeekBar
+import com.theveloper.pixelplay.presentation.viewmodel.LyricsSearchUiState
 import com.theveloper.pixelplay.presentation.viewmodel.PlayerUiState
 import com.theveloper.pixelplay.presentation.viewmodel.StablePlayerState
+import com.theveloper.pixelplay.ui.theme.GoogleSansRounded
 import com.theveloper.pixelplay.utils.BubblesLine
 import com.theveloper.pixelplay.utils.ProviderText
 import kotlinx.coroutines.flow.Flow
@@ -49,6 +60,12 @@ import kotlin.math.abs
 fun LyricsSheet(
     stablePlayerStateFlow: StateFlow<StablePlayerState>,
     playerUiStateFlow: StateFlow<PlayerUiState>,
+    lyricsSearchUiState: LyricsSearchUiState,
+    resetLyricsForCurrentSong: () -> Unit,
+    onSearchLyrics: () -> Unit,
+    onPickResult: (LyricsSearchResult) -> Unit,
+    onImportLyrics: () -> Unit,
+    onDismissLyricsSearch: () -> Unit,
     lyricsTextStyle: TextStyle,
     backgroundColor: Color,
     onBackgroundColor: Color,
@@ -69,8 +86,32 @@ fun LyricsSheet(
     val isLoadingLyrics by remember { derivedStateOf { stablePlayerState.isLoadingLyrics } }
     val lyrics by remember { derivedStateOf { stablePlayerState.lyrics } }
     val isPlaying by remember { derivedStateOf { stablePlayerState.isPlaying } }
+    val currentSong by remember { derivedStateOf { stablePlayerState.currentSong } }
 
     val context = LocalContext.current
+
+    var showFetchLyricsDialog by remember { mutableStateOf(false) }
+
+    LaunchedEffect(currentSong, lyrics, isLoadingLyrics) {
+        if (currentSong != null && lyrics == null && !isLoadingLyrics) {
+            showFetchLyricsDialog = true
+        } else if (lyrics != null || isLoadingLyrics) {
+            showFetchLyricsDialog = false
+        }
+    }
+
+    if (showFetchLyricsDialog) {
+        FetchLyricsDialog(
+            uiState = lyricsSearchUiState,
+            onConfirm = onSearchLyrics,
+            onPickResult = onPickResult,
+            onDismiss = {
+                showFetchLyricsDialog = false
+                onDismissLyricsSearch()
+             },
+            onImport = onImportLyrics
+        )
+    }
 
     var showSyncedLyrics by remember(lyrics) {
         mutableStateOf(
@@ -136,7 +177,13 @@ fun LyricsSheet(
                     Modifier.align(Alignment.TopCenter)
                 ) {
                     CenterAlignedTopAppBar(
-                        title = { Text(text = "Lyrics", fontWeight = FontWeight.Bold) },
+                        title = {
+                            Text(
+                                text = "Lyrics",
+                                fontWeight = FontWeight.Bold,
+                                color = onBackgroundColor
+                            )
+                        },
                         navigationIcon = {
                             FilledIconButton(
                                 modifier = Modifier.padding(start = 12.dp),
@@ -152,6 +199,46 @@ fun LyricsSheet(
                                 )
                             }
                         },
+                        actions = {
+                            var expanded by remember { mutableStateOf(false) }
+                            IconButton(
+                                colors = IconButtonDefaults.iconButtonColors(
+                                    contentColor = onBackgroundColor
+                                ),
+                                onClick = { expanded = !expanded }
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.MoreVert,
+                                    contentDescription = "Lyrics options",
+                                    tint = onBackgroundColor
+                                )
+                                DropdownMenu(
+                                    shape = AbsoluteSmoothCornerShape(
+                                        cornerRadiusBL = 20.dp,
+                                        smoothnessAsPercentTL = 60,
+                                        cornerRadiusBR = 20.dp,
+                                        smoothnessAsPercentTR = 60,
+                                        cornerRadiusTL = 20.dp,
+                                        smoothnessAsPercentBL = 60,
+                                        cornerRadiusTR = 20.dp,
+                                        smoothnessAsPercentBR = 60
+                                    ),
+                                    containerColor = backgroundColor,
+                                    expanded = expanded,
+                                    onDismissRequest = { expanded = false }
+                                ) {
+                                    DropdownMenuItem(
+                                        leadingIcon = { Icon(painter = painterResource(R.drawable.outline_restart_alt_24), contentDescription = null) },
+                                        text = { Text(text = "Reset imported lyrics") },
+                                        onClick = {
+                                            expanded = false
+                                            resetLyricsForCurrentSong()
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                        ,
                         colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
                             containerColor = Color.Transparent
                         )
@@ -193,6 +280,13 @@ fun LyricsSheet(
                                         selectedIndex = selectedTabIndex,
                                         onClick = {
                                             showSyncedLyrics = (index == 0)
+                                        },
+                                        content = {
+                                            Text(
+                                                text = title,
+                                                fontWeight = FontWeight.Bold,
+                                                fontFamily = GoogleSansRounded
+                                            )
                                         }
                                     )
                                 }
@@ -327,8 +421,6 @@ fun LyricsSheet(
                                             modifier = Modifier.width(100.dp)
                                         )
                                     }
-                                } else {
-                                    Text(text = context.resources.getString(R.string.cant_find_lyrics))
                                 }
                             }
                         }
@@ -338,24 +430,23 @@ fun LyricsSheet(
                             itemsIndexed(
                                 items = synced,
                                 key = { index, item -> "$index-${item.time}" }
-                            ) { index, (time, line) ->
+                            ) { index, syncedLine ->
                                 val nextTime = synced.getOrNull(index + 1)?.time ?: Int.MAX_VALUE
 
-                                if (line.isNotBlank()) {
+                                if (syncedLine.line.isNotBlank()) {
                                     SyncedLyricsLine(
                                         positionFlow = playerUiStateFlow.map { it.currentPosition },
-                                        time = time,
+                                        syncedLine = syncedLine,
                                         nextTime = nextTime,
-                                        line = line,
                                         accentColor = accentColor,
                                         style = lyricsTextStyle,
-                                        onClick = { onSeekTo(time.toLong()) },
+                                        onClick = { onSeekTo(syncedLine.time.toLong()) },
                                         modifier = Modifier.fillMaxWidth()
                                     )
                                 } else {
                                     BubblesLine(
                                         positionFlow = playerUiStateFlow.map { it.currentPosition },
-                                        time = time,
+                                        time = syncedLine.time,
                                         color = contentColor,
                                         nextTime = nextTime,
                                         modifier = Modifier.padding(vertical = 8.dp)
@@ -365,7 +456,7 @@ fun LyricsSheet(
                             }
 
                             if (lyrics!!.areFromRemote) {
-                                item {
+                                item(key = "provider_text") {
                                     ProviderText(
                                         providerText = context.resources.getString(R.string.lyrics_provided_by),
                                         uri = context.resources.getString(R.string.lrclib_uri),
@@ -434,26 +525,54 @@ fun LyricsSheet(
 @Composable
 fun SyncedLyricsLine(
     positionFlow: Flow<Long>,
-    time: Int,
+    syncedLine: SyncedLine,
     accentColor: Color,
     nextTime: Int,
-    line: String,
     style: TextStyle,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val position by positionFlow.collectAsState(0)
-    val isCurrentLine by remember(position, time, nextTime) {
-        derivedStateOf { position in time.toLong()..nextTime.toLong() }
+    val position by positionFlow.collectAsState(0L)
+    val isCurrentLine by remember(position, syncedLine.time, nextTime) {
+        derivedStateOf { position in syncedLine.time.toLong()..<nextTime.toLong() }
     }
 
-    Text(
-        text = line,
-        style = style,
-        color = if (isCurrentLine) accentColor else LocalContentColor.current.copy(alpha = 0.45f),
-        fontWeight = if (isCurrentLine) FontWeight.Bold else FontWeight.Normal,
-        modifier = modifier.clickable { onClick() }
-    )
+    val words = syncedLine.words
+    if (words.isNullOrEmpty()) {
+        // Fallback to line-by-line
+        Text(
+            text = syncedLine.line,
+            style = style,
+            color = if (isCurrentLine) accentColor else LocalContentColor.current.copy(alpha = 0.45f),
+            fontWeight = if (isCurrentLine) FontWeight.Bold else FontWeight.Normal,
+            modifier = modifier.clickable { onClick() }
+        )
+    } else {
+        // Word-by-word highlighting
+        val unhighlightedColor = LocalContentColor.current.copy(alpha = 0.45f)
+        val highlightedColor = accentColor
+
+        Row(modifier = modifier.clickable { onClick() }) {
+            for ((index, word) in words.withIndex()) {
+                val nextWordTime = words.getOrNull(index + 1)?.time?.toLong() ?: nextTime.toLong()
+                val isCurrentWord by remember(position, word.time, nextWordTime) {
+                    derivedStateOf { position in word.time.toLong()..<nextWordTime }
+                }
+
+                val color by animateColorAsState(
+                    targetValue = if (isCurrentWord) highlightedColor else unhighlightedColor,
+                    animationSpec = tween(durationMillis = 300)
+                )
+
+                Text(
+                    text = word.word,
+                    style = style,
+                    color = color,
+                    fontWeight = if (isCurrentWord) FontWeight.Bold else FontWeight.Normal,
+                )
+            }
+        }
+    }
 }
 
 @Composable

@@ -49,24 +49,29 @@ data class SongEntity(
     @ColumnInfo(name = "parent_directory_path") val parentDirectoryPath: String, // Added for directory filtering
     @ColumnInfo(name = "is_favorite", defaultValue = "0") val isFavorite: Boolean = false,
     @ColumnInfo(name = "lyrics", defaultValue = "null") val lyrics: String? = null,
-    @ColumnInfo(name = "track_number", defaultValue = "0") val trackNumber: Int = 0
+    @ColumnInfo(name = "track_number", defaultValue = "0") val trackNumber: Int = 0,
+    @ColumnInfo(name = "year", defaultValue = "0") val year: Int = 0,
+    @ColumnInfo(name = "date_added", defaultValue = "0") val dateAdded: Long = System.currentTimeMillis()
 )
 
 fun SongEntity.toSong(): Song {
     return Song(
-        id = this.id.toString(), // El modelo Song usa ID como String
+        id = this.id.toString(),
         title = this.title,
         artist = this.artistName,
         artistId = this.artistId,
         album = this.albumName,
         albumId = this.albumId,
+        path = this.filePath, // Map the file path
         contentUriString = this.contentUriString,
         albumArtUriString = this.albumArtUriString,
         duration = this.duration,
         genre = this.genre,
         lyrics = this.lyrics,
         isFavorite = this.isFavorite,
-        trackNumber = this.trackNumber
+        trackNumber = this.trackNumber,
+        dateAdded = this.dateAdded,
+        year = this.year
         // filePath no está en el modelo Song, se usa internamente en el repo o SSoT
     )
 }
@@ -92,7 +97,9 @@ fun Song.toEntity(filePathFromMediaStore: String, parentDirFromMediaStore: Strin
         genre = this.genre,
         lyrics = this.lyrics,
         filePath = filePathFromMediaStore,
-        parentDirectoryPath = parentDirFromMediaStore
+        parentDirectoryPath = parentDirFromMediaStore,
+        dateAdded = this.dateAdded,
+        year = this.year
     )
 }
 
@@ -112,6 +119,8 @@ fun Song.toEntityWithoutPaths(): SongEntity {
         genre = this.genre,
         lyrics = this.lyrics,
         filePath = "", // Default o manejar como no disponible
-        parentDirectoryPath = "" // Default o manejar como no disponible
+        parentDirectoryPath = "", // Default o manejar como no disponible
+        dateAdded = this.dateAdded,
+        year = this.year
     )
 }

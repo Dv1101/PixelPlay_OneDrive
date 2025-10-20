@@ -45,31 +45,47 @@ class SyncWorker @AssistedInject constructor(
             val oneDriveFolders = songs.map { it.parentDirectoryPath }.distinct()
 
             songs = songs + oneDriveSongs
+            val mediaStoreSongs = fetchAllMusicData()
+            Log.i(TAG, "Fetched ${mediaStoreSongs.size} songs from MediaStore.")
 
-            if (songs.isNotEmpty()) {
-                val existingLyricsMap = musicDao.getAllSongsList().associate { it.id to it.lyrics }
+            if (mediaStoreSongs.isNotEmpty()) {
+                // Fetch existing local songs to preserve their dateAdded and lyrics
+                val localSongsMap = musicDao.getAllSongsList().associate {
+                    it.id to Pair(it.dateAdded, it.lyrics)
+                }
 
-                val (correctedSongs, albums, artists) = preProcessAndDeduplicate(songs)
+                val newSongTimestamp = System.currentTimeMillis()
 
-                val songsWithPreservedLyrics = correctedSongs.map { songEntity ->
-                    val existingLyrics = existingLyricsMap[songEntity.id]
-                    if (!existingLyrics.isNullOrBlank()) {
-                        songEntity.copy(lyrics = existingLyrics)
+                // Prepare the final list of songs for insertion
+                val songsToInsert = mediaStoreSongs.map { mediaStoreSong ->
+                    val preservedData = localSongsMap[mediaStoreSong.id]
+                    if (preservedData != null) {
+                        // This song exists locally, so preserve its dateAdded and lyrics
+                        mediaStoreSong.copy(
+                            dateAdded = preservedData.first,
+                            lyrics = preservedData.second
+                        )
                     } else {
-                        songEntity
+                        // This is a new song. Assign the uniform timestamp for this sync batch.
+                        mediaStoreSong.copy(dateAdded = newSongTimestamp)
                     }
                 }
 
-                musicDao.clearAllMusicData()
-                musicDao.insertMusicData(songsWithPreservedLyrics, albums, artists)
+                val (correctedSongs, albums, artists) = preProcessAndDeduplicate(songsToInsert)
 
-                Log.i(TAG, "Music data insertion call completed.")
+                // Perform the "clear and insert" operation
+                musicDao.clearAllMusicData()
+                musicDao.insertMusicData(correctedSongs, albums, artists)
+
+                Log.i(TAG, "Music data synchronization completed. ${correctedSongs.size} songs processed.")
             } else {
-                Log.w(TAG, "MediaStore fetch resulted in empty list for songs. No data will be inserted.")
+                // MediaStore is empty, so clear the local database
+                musicDao.clearAllMusicData()
+                Log.w(TAG, "MediaStore fetch resulted in empty list. Local music data cleared.")
             }
 
             val endTime = System.currentTimeMillis()
-            Log.i(TAG, "MediaStore synchronization completed successfully in ${endTime - startTime}ms.")
+            Log.i(TAG, "MediaStore synchronization finished successfully in ${endTime - startTime}ms.")
             Result.success()
         } catch (e: Exception) {
             Log.e(TAG, "Error during MediaStore synchronization", e)
@@ -112,7 +128,8 @@ class SyncWorker @AssistedInject constructor(
                 artistName = firstSong.artistName,
                 artistId = firstSong.artistId,
                 albumArtUriString = firstSong.albumArtUriString,
-                songCount = songsInAlbum.size
+                songCount = songsInAlbum.size,
+                year = firstSong.year
             )
         }
 
@@ -232,7 +249,8 @@ class SyncWorker @AssistedInject constructor(
             MediaStore.Audio.Media.DURATION,
             MediaStore.Audio.Media.DATA,
             MediaStore.Audio.Media.GENRE,
-            MediaStore.Audio.Media.TRACK
+            MediaStore.Audio.Media.TRACK,
+            MediaStore.Audio.Media.YEAR
         )
         val selection = "${MediaStore.Audio.Media.IS_MUSIC} != 0 AND ${MediaStore.Audio.Media.DURATION} >= ?"
         val selectionArgs = arrayOf("10000")
@@ -255,6 +273,7 @@ class SyncWorker @AssistedInject constructor(
             val dataCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATA)
             val genreCol = cursor.getColumnIndex(MediaStore.Audio.Media.GENRE)
             val trackCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TRACK)
+            val yearCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.YEAR)
 
 
             while (cursor.moveToNext()) {
@@ -294,7 +313,8 @@ class SyncWorker @AssistedInject constructor(
                         genre = if (genreCol != -1) cursor.getString(genreCol) else null,
                         filePath = filePath,
                         parentDirectoryPath = parentDir,
-                        trackNumber = cursor.getInt(trackCol)
+                        trackNumber = cursor.getInt(trackCol),
+                        year = cursor.getInt(yearCol)
                     )
                 )
             }
