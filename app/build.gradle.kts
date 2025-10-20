@@ -95,6 +95,8 @@ dependencies {
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
     implementation(libs.generativeai)
+    implementation(libs.room.ktx)
+    implementation(libs.play.services.cast.framework)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -244,11 +246,6 @@ dependencies {
     implementation(libs.okhttp)
     implementation(libs.logging.interceptor)
 
-    // Ktor for HTTP Server
-    implementation(libs.ktor.server.core)
-    implementation(libs.ktor.server.netty)
-    implementation(libs.kotlinx.coroutines.core)
-
     implementation(libs.androidx.ui.text.google.fonts)
 
     implementation(libs.accompanist.drawablepainter)
@@ -261,6 +258,12 @@ dependencies {
     implementation("com.microsoft.graph:microsoft-graph:5.59.0")
     // https://mvnrepository.com/artifact/com.azure/azure-identity
     implementation("com.azure:azure-identity:1.16.2")
+    implementation("io.ktor:ktor-http:2.3.11")
+    implementation("io.ktor:ktor-server-core:2.3.11")
+    implementation("io.ktor:ktor-server-netty:2.3.11")
+    implementation("io.ktor:ktor-server-host-common:2.3.11")
+    implementation("io.ktor:ktor-server-content-negotiation:2.3.11")
+    implementation("io.ktor:ktor-serialization-jackson:2.3.11")
 }
 
 

@@ -36,8 +36,7 @@ class SettingsViewModel @Inject constructor(
     val userPreferencesRepository: UserPreferencesRepository,
     private val musicRepository: MusicRepository,
     private val syncManager: SyncManager,
-    private val geminiModelService: GeminiModelService
-    private val syncManager: SyncManager,
+    private val geminiModelService: GeminiModelService,
     val musicDao: MusicDao
 ) : ViewModel() {
 

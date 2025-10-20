@@ -38,15 +38,14 @@ class SyncWorker @AssistedInject constructor(
             Log.i(TAG, "Starting MediaStore synchronization...")
             val startTime = System.currentTimeMillis()
 
-            var songs = fetchAllMusicData()
-            Log.i(TAG, "Fetched ${songs.size} songs from MediaStore.")
+            var mediaStoreSongs = fetchAllMusicData()
+            Log.i(TAG, "Fetched ${mediaStoreSongs.size} songs from MediaStore.")
             val oneDriveSongs = SongStorage.getSongs()
 
-            val oneDriveFolders = songs.map { it.parentDirectoryPath }.distinct()
+            val oneDriveFolders = mediaStoreSongs.map { it.parentDirectoryPath }.distinct()
 
-            songs = songs + oneDriveSongs
-            val mediaStoreSongs = fetchAllMusicData()
-            Log.i(TAG, "Fetched ${mediaStoreSongs.size} songs from MediaStore.")
+            mediaStoreSongs = mediaStoreSongs + oneDriveSongs
+
 
             if (mediaStoreSongs.isNotEmpty()) {
                 // Fetch existing local songs to preserve their dateAdded and lyrics

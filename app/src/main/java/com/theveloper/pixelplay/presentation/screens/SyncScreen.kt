@@ -511,7 +511,8 @@ private fun preProcessAndDeduplicate(songs: List<SongEntity>): Triple<List<SongE
             artistName = firstSong.artistName,
             artistId = firstSong.artistId,
             albumArtUriString = firstSong.albumArtUriString,
-            songCount = songsInAlbum.size
+            songCount = songsInAlbum.size,
+            year = firstSong.year
         )
     }
 

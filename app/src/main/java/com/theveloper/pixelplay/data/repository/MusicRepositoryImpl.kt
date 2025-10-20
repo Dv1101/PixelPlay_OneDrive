@@ -641,9 +641,7 @@ class MusicRepositoryImpl @Inject constructor(
     override suspend fun resetLyrics(songId: Long) {
         lyricsRepository.resetLyrics(songId)
     }
-                if (synced.isNullOrEmpty() && plain.isNullOrEmpty()) {
-                    return@withContext Result.failure(Exception("No lyrics found for this song."))
-                }
+
 
     override suspend fun resetAllLyrics() {
         lyricsRepository.resetAllLyrics()
